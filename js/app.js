@@ -65,6 +65,11 @@ async function connectToNetwork() {
             if (currentRoomState.blockchain && currentRoomState.blockchain.length > 0) {
                 handleBlockchainSync(currentRoomState.blockchain);
             }
+            
+            // Handle governance data sync
+            if (currentRoomState.pendingProposals) {
+                handlePendingProposalsSync(currentRoomState.pendingProposals);
+            }
         });
         
         // Set up message handling
@@ -78,10 +83,10 @@ async function connectToNetwork() {
             connected: true
         });
         
-        // Share our blockchain with peers
-        shareBlockchain();
+        // Request blockchain and governance data from peers
+        requestNetworkSync();
         
-        updateSyncStatus("synced", "Connected to network");
+        updateSyncStatus("syncing", "Requesting network data");
         console.log("Connected to peer network");
     } catch (error) {
         console.error("Network connection error:", error);
@@ -89,11 +94,26 @@ async function connectToNetwork() {
     }
 }
 
+// Request blockchain and governance data from peers
+function requestNetworkSync() {
+    room.send({
+        type: "syncRequest",
+        timestamp: Date.now(),
+        echo: true
+    });
+}
+
 // Handle incoming network messages
 function handleNetworkMessage(event) {
     const data = event.data;
     
     switch (data.type) {
+        case "syncRequest":
+            // Someone wants our data - share our blockchain and proposals
+            shareBlockchain();
+            sharePendingProposals();
+            break;
+            
         case "newProposal":
             handleNewProposal(data);
             break;
@@ -111,6 +131,14 @@ function handleNetworkMessage(event) {
             break;
             
         case "connected":
+            // When a new peer connects, share our data with them
+            setTimeout(() => {
+                shareBlockchain();
+                sharePendingProposals();
+            }, 1000); // Small delay to ensure they're ready to receive
+            updatePeersList();
+            break;
+            
         case "disconnected":
             updatePeersList();
             break;
@@ -130,6 +158,24 @@ function shareBlockchain() {
     });
 }
 
+// Share pending proposals that might not be in the blockchain yet
+function sharePendingProposals() {
+    updateSyncStatus("syncing", "Sharing pending proposals");
+    
+    // Get all pending proposals that aren't already in the blockchain
+    const pendingProposals = {};
+    for (const [id, proposal] of Object.entries(governanceSystem.proposals)) {
+        if (proposal.status === 'pending') {
+            pendingProposals[id] = proposal;
+        }
+    }
+    
+    // Share with peers
+    room.updateRoomState({
+        pendingProposals: pendingProposals
+    });
+}
+
 // Handle blockchain sync from other peers
 async function handleBlockchainSync(otherChain) {
     updateSyncStatus("syncing", "Receiving blockchain");
@@ -141,10 +187,35 @@ async function handleBlockchainSync(otherChain) {
             // Re-initialize governance system with new chain data
             await governanceSystem.initialize();
             updateUI();
+            updateSyncStatus("synced", "Blockchain synchronized");
+        } else {
+            updateSyncStatus("error", "Received invalid blockchain");
+        }
+    } else {
+        updateSyncStatus("synced", "Blockchain up to date");
+    }
+}
+
+// Handle pending proposals sync from other peers
+function handlePendingProposalsSync(pendingProposals) {
+    updateSyncStatus("syncing", "Receiving pending proposals");
+    
+    let newProposalsCount = 0;
+    
+    // Add any proposals we don't have
+    for (const [id, proposal] of Object.entries(pendingProposals)) {
+        if (!governanceSystem.proposals[id]) {
+            governanceSystem.proposals[id] = proposal;
+            newProposalsCount++;
         }
     }
     
-    updateSyncStatus("synced", "Blockchain synchronized");
+    if (newProposalsCount > 0) {
+        console.log(`Added ${newProposalsCount} new pending proposals from peers`);
+        updateProposalsList();
+    }
+    
+    updateSyncStatus("synced", "Proposals synchronized");
 }
 
 // Handle a new proposal from the network
@@ -152,6 +223,11 @@ function handleNewProposal(data) {
     if (!governanceSystem.proposals[data.proposal.id]) {
         governanceSystem.proposals[data.proposal.id] = data.proposal;
         updateProposalsList();
+        
+        // Also add to pending proposals in room state
+        const pendingProposals = room.roomState.pendingProposals || {};
+        pendingProposals[data.proposal.id] = data.proposal;
+        room.updateRoomState({ pendingProposals });
     }
 }
 
@@ -182,6 +258,15 @@ function handleVote(data) {
             // Check if proposal should be executed
             governanceSystem.evaluateProposal(proposal);
             
+            // If the proposal status changed, update the room state
+            if (proposal.status !== 'pending') {
+                const pendingProposals = {...room.roomState.pendingProposals} || {};
+                if (pendingProposals[proposalId]) {
+                    delete pendingProposals[proposalId];
+                    room.updateRoomState({ pendingProposals });
+                }
+            }
+            
             updateProposalsList();
         }
     }
@@ -207,6 +292,28 @@ async function handleNewBlock(blockData) {
     if (added) {
         // Re-initialize governance system with new chain data
         await governanceSystem.initialize();
+        
+        // Remove proposals from pending proposals that are now in the blockchain
+        const blockProposalIds = block.data
+            .filter(tx => tx.type === 'proposal')
+            .map(tx => tx.id);
+        
+        if (blockProposalIds.length > 0 && room.roomState.pendingProposals) {
+            const pendingProposals = {...room.roomState.pendingProposals};
+            let updated = false;
+            
+            for (const id of blockProposalIds) {
+                if (pendingProposals[id]) {
+                    delete pendingProposals[id];
+                    updated = true;
+                }
+            }
+            
+            if (updated) {
+                room.updateRoomState({ pendingProposals });
+            }
+        }
+        
         updateUI();
     }
     
@@ -379,6 +486,11 @@ async function createProposal(title, description, proposalType) {
         updateSyncStatus("syncing", "Creating proposal");
         const proposalId = await governanceSystem.createProposal(title, description, proposalType);
         
+        // Add to pending proposals in room state
+        const pendingProposals = room.roomState.pendingProposals || {};
+        pendingProposals[proposalId] = governanceSystem.proposals[proposalId];
+        room.updateRoomState({ pendingProposals });
+        
         // Broadcast proposal to the network
         room.send({
             type: "newProposal",
@@ -433,4 +545,3 @@ function setupEventListeners() {
 
 // Start the application
 document.addEventListener('DOMContentLoaded', initializeApp);
-

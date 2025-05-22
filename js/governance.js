@@ -17,10 +17,16 @@ class GovernanceSystem {
      * Initialize the governance system
      */
     async initialize() {
+        // Clear existing data before loading
+        this.proposals = {};
+        this.rules = [];
+        this.roles = {};
+        this.resources = {};
+        
         // Load existing rules and roles from the blockchain
         await this.loadGovernanceData();
         
-        console.log("Governance system initialized");
+        console.log("Governance system initialized with data from blockchain");
     }
 
     /**
@@ -31,6 +37,8 @@ class GovernanceSystem {
         const proposals = blockchain.getTransactionsByType('proposal');
         const votes = blockchain.getTransactionsByType('vote');
         const executions = blockchain.getTransactionsByType('execution');
+        
+        console.log(`Loading governance data: ${proposals.length} proposals, ${votes.length} votes, ${executions.length} executions`);
         
         // Process proposals
         for (const proposal of proposals) {
@@ -288,4 +296,3 @@ class GovernanceSystem {
 
 // Export singleton
 const governanceSystem = new GovernanceSystem();
-

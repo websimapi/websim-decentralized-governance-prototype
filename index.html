@@ -183,6 +183,24 @@
             border-radius: 50%;
             margin-right: 10px;
         }
+
+        #syncProgress {
+            height: 3px;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+            margin-top: 5px;
+        }
+
+        .syncing #syncProgress {
+            animation: progress-pulse 2s infinite;
+        }
+
+        @keyframes progress-pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
     </style>
 </head>
 <body>
@@ -190,7 +208,10 @@
         <div class="container">
             <h1>Decentralized Governance Prototype</h1>
             <p>A trustless, transparent community governance system</p>
-            <span id="syncStatus" class="syncing">Initializing...</span>
+            <div id="syncContainer">
+                <span id="syncStatus" class="syncing">Initializing...</span>
+                <div id="syncProgress"></div>
+            </div>
         </div>
     </header>
 
@@ -252,4 +273,3 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
-
