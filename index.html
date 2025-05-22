@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decentralized Governance Prototype</title>
+    <style>
+        :root {
+            --primary: #6200ea;
+            --secondary: #03dac6;
+            --background: #121212;
+            --surface: #1e1e1e;
+            --on-background: #e1e1e1;
+            --on-surface: #ffffff;
+            --error: #cf6679;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background);
+            color: var(--on-background);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: var(--surface);
+            padding: 20px;
+            border-bottom: 2px solid var(--primary);
+            margin-bottom: 20px;
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #7c4dff;
+        }
+
+        button.secondary {
+            background-color: var(--secondary);
+            color: black;
+        }
+
+        button.secondary:hover {
+            background-color: #00ffeb;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #2d2d2d;
+            border: 1px solid #444;
+            color: var(--on-background);
+        }
+
+        .proposal {
+            border-left: 4px solid var(--primary);
+            padding-left: 10px;
+            margin-bottom: 15px;
+        }
+
+        .proposal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+
+        .tag.pending {
+            background-color: #ff9800;
+            color: black;
+        }
+
+        .tag.approved {
+            background-color: #4caf50;
+            color: black;
+        }
+
+        .tag.rejected {
+            background-color: var(--error);
+            color: black;
+        }
+
+        #identityInfo {
+            word-break: break-all;
+        }
+
+        .vote-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        #syncStatus {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .synced {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .syncing {
+            background-color: #ff9800;
+            color: black;
+        }
+
+        .error {
+            background-color: var(--error);
+            color: white;
+        }
+
+        #ledgerView {
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        #peers {
+            margin-top: 20px;
+        }
+
+        .peer {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .peer-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Decentralized Governance Prototype</h1>
+            <p>A trustless, transparent community governance system</p>
+            <span id="syncStatus" class="syncing">Initializing...</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="grid">
+            <div>
+                <div class="card" id="identityCard">
+                    <h2>Your Identity</h2>
+                    <div id="identityInfo">
+                        <p>Generating identity...</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Create Proposal</h2>
+                    <form id="proposalForm">
+                        <input type="text" id="proposalTitle" placeholder="Proposal Title" required>
+                        <textarea id="proposalDescription" placeholder="Describe your proposal..." rows="4" required></textarea>
+                        <select id="proposalType" required>
+                            <option value="">Select Proposal Type</option>
+                            <option value="rule">Community Rule</option>
+                            <option value="resource">Resource Allocation</option>
+                            <option value="role">Role Assignment</option>
+                        </select>
+                        <button type="submit">Submit Proposal</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>Connected Peers</h2>
+                    <div id="peers">
+                        <p>Connecting to peers...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h2>Community Proposals</h2>
+                    <div id="proposalsList">
+                        <p>Loading proposals...</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Ledger (Recent Blocks)</h2>
+                    <div id="ledgerView">
+                        <p>Loading ledger data...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/crypto.js"></script>
+    <script src="js/blockchain.js"></script>
+    <script src="js/governance.js"></script>
+    <script src="js/app.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
+
